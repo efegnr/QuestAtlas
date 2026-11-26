@@ -1,0 +1,177 @@
+classDiagram
+    direction TB
+
+    class WowApiAdapter {
+        <<Adapter>>
+        -table env
+        +getQuestApiFlavor() string
+        +getQuestLogEntries() list
+        +getQuestPoiLocations(questIDs) table
+        +hasQuestPoiApi() bool
+        +hasWaypointApi() bool
+        +getClientInfo() table
+        +isQuestCompleted(questID) bool
+        +getPlayerInfo() table
+        +getPlayerMapPosition() table
+        +getWorldPosition(mapID, x, y)
+        +getMapName(mapID) string
+        +setWaypoint(mapID, x, y) bool
+        +printMessage(text)
+        +after(seconds, fn)
+        +newTicker(seconds, fn)
+        +createFrame(type, name, parent, template)
+    }
+
+    class IQuestSource {
+        <<interface>>
+        +readQuests() list
+    }
+    class QuestLogReader {
+        -WowApiAdapter api
+        -QuestFactory questFactory
+        -IQuestPoiProvider poiProvider
+        +readQuests() list
+    }
+
+    class IQuestPoiProvider {
+        <<interface>>
+        +getQuestPois(questIDs) table
+    }
+    class GameQuestPoiProvider {
+        -WowApiAdapter api
+        +getQuestPois(questIDs) table
+    }
+    class NullQuestPoiProvider {
+        <<Null Object>>
+        +getQuestPois(questIDs) table
+    }
+
+    class IPositionProvider {
+        <<interface>>
+        +getPlayerLocation() Location
+    }
+    class PlayerPositionProvider {
+        -WowApiAdapter api
+        +getPlayerLocation() Location
+    }
+
+    class IQuestRepository {
+        <<interface>>
+        +getQuest(id)
+        +getNpc(key)
+        +getAllQuestIds() list
+        +findAvailable(player, isCompleted, inLog) list
+    }
+    class QuestRepository {
+        <<Repository>>
+        -table data
+        +getNpcLocation(key) Location
+    }
+
+    class QuestFactory {
+        <<Factory Method>>
+        -IQuestRepository repository
+        -table creators
+        +create(kind, source) Quest
+        +registerCreator(kind, creator)
+        +createFromLogEntry(entry) Quest
+        +createPlanned(questID) Quest
+    }
+
+    class IMapGeometry {
+        <<interface>>
+        +toWorld(location) table
+    }
+    class ApiMapGeometry
+    class StaticMapGeometry
+    class ChainedMapGeometry {
+        <<Chain of Responsibility>>
+        -list geometries
+    }
+
+    class IDistanceCalculator {
+        <<interface>>
+        +distance(a, b) number
+    }
+    class DistanceCalculator {
+        -IMapGeometry geometry
+        -table cache
+        +distance(a, b) number
+    }
+
+    class ISettingsStore {
+        <<interface>>
+        +get(key)
+        +set(key, value)
+    }
+    class SettingsStore {
+        +DEFAULTS
+        +load() table
+    }
+
+    class Quest {
+        +id
+        +title
+        +level
+        +QuestStatus status
+        +list objectives
+        +Location giver
+        +Location turnIn
+        +bool known
+        +string locationSource
+        +isPlanned() bool
+        +isReady() bool
+        +isFailed() bool
+        +remainingObjectives() list
+        +isRoutable() bool
+    }
+    class QuestObjective {
+        +index
+        +text
+        +bool finished
+        +Location location
+    }
+    class Location {
+        +mapID
+        +x
+        +y
+        +label
+        +key() string
+        +equals(other) bool
+        +describe() string
+    }
+    class QuestStatus {
+        <<enumeration>>
+        PLANNED
+        IN_PROGRESS
+        READY
+        FAILED
+    }
+
+    IQuestSource <|.. QuestLogReader
+    IPositionProvider <|.. PlayerPositionProvider
+    IQuestRepository <|.. QuestRepository
+    IMapGeometry <|.. ApiMapGeometry
+    IMapGeometry <|.. StaticMapGeometry
+    IMapGeometry <|.. ChainedMapGeometry
+    ChainedMapGeometry o-- IMapGeometry : sırayla sorar
+    IDistanceCalculator <|.. DistanceCalculator
+    ISettingsStore <|.. SettingsStore
+    QuestLogReader --> WowApiAdapter
+    QuestLogReader --> QuestFactory
+    QuestLogReader --> IQuestPoiProvider : harita işaretleri
+    IQuestPoiProvider <|.. GameQuestPoiProvider
+    IQuestPoiProvider <|.. NullQuestPoiProvider
+    GameQuestPoiProvider --> WowApiAdapter
+    PlayerPositionProvider --> WowApiAdapter
+    ApiMapGeometry --> WowApiAdapter
+    DistanceCalculator --> IMapGeometry
+    QuestFactory --> IQuestRepository
+    QuestFactory ..> Quest : oluşturur
+    Quest "1" *-- "many" QuestObjective
+    Quest --> Location
+    QuestObjective --> Location
+    Quest --> QuestStatus
+
+    note for WowApiAdapter "WoW API'yi çağıran TEK sınıf.\nEski (GetQuestLogTitle) ve yeni (C_QuestLog)\ngörev API'lerini aynı arayüze çevirir."
+    note for QuestFactory "Önce veritabanı; bilmediğini\noyunun harita işareti (POI) tamamlar."

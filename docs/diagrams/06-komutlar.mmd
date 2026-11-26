@@ -1,0 +1,95 @@
+classDiagram
+    direction LR
+
+    class QuestAtlasFacade {
+        <<Facade>>
+        +handleSlashCommand(message)
+    }
+
+    class ICommandHandler {
+        <<interface>>
+        +setNext(handler) handler
+        +handle(context, command, args) bool
+    }
+
+    class CommandHandler {
+        <<abstract>>
+        -list names
+        -string helpKey
+        -ICommandHandler nextHandler
+        +setNext(handler) handler
+        +handle(context, command, args) bool
+        +canHandle(command) bool
+        +execute(context, args)*
+        +getHelpKey() string
+    }
+
+    class CommandChainFactory {
+        <<Factory Method>>
+        +ORDER
+        +build()$
+    }
+
+    class HelpCommand {
+        help, ?, boş
+    }
+    class ToggleCommand {
+        toggle, ui
+    }
+    class ShowCommand {
+        show
+    }
+    class HideCommand {
+        hide
+    }
+    class RefreshCommand {
+        refresh, r
+    }
+    class RouteCommand {
+        route
+    }
+    class NextCommand {
+        next, way
+    }
+    class StrategyCommand {
+        strategy, s
+    }
+    class CompareCommand {
+        compare
+    }
+    class AvailableCommand {
+        available, av
+    }
+    class PlanCommand {
+        plan, p
+    }
+    class LanguageCommand {
+        lang, language
+    }
+    class DebugCommand {
+        debug, diag
+    }
+    class UnknownCommand {
+        her şey - zincirin sonu
+    }
+
+    QuestAtlasFacade --> ICommandHandler : handle(self, komut, argümanlar)
+    ICommandHandler <|.. CommandHandler
+    CommandHandler --> ICommandHandler : next
+    CommandChainFactory ..> CommandHandler : zinciri kurar
+    CommandHandler <|-- HelpCommand
+    CommandHandler <|-- ToggleCommand
+    CommandHandler <|-- ShowCommand
+    CommandHandler <|-- HideCommand
+    CommandHandler <|-- RefreshCommand
+    CommandHandler <|-- RouteCommand
+    CommandHandler <|-- NextCommand
+    CommandHandler <|-- StrategyCommand
+    CommandHandler <|-- CompareCommand
+    CommandHandler <|-- AvailableCommand
+    CommandHandler <|-- PlanCommand
+    CommandHandler <|-- LanguageCommand
+    CommandHandler <|-- DebugCommand
+    CommandHandler <|-- UnknownCommand
+
+    note for CommandHandler "Template Method: handle() sabit,\nalt sınıflar sadece execute() yazar.\nChain of Responsibility: işleyemezse\nkomutu next'e (sıradakine) verir."

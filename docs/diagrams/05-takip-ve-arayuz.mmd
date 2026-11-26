@@ -1,0 +1,121 @@
+classDiagram
+    direction LR
+
+    class Bootstrap {
+        <<Composition Root>>
+        +CreateApp(env)$
+        -onEvent(event, ...)
+        -scheduleRefresh(reason)
+    }
+
+    class QuestAtlasFacade {
+        <<Facade>>
+        +refresh(reason)
+        +getQuests() list
+        +getRoute() Route
+        +setStrategy(name)
+        +cycleStrategy()
+        +compareStrategies() list
+        +getAvailableQuests() list
+        +planQuest(id)
+        +unplanQuest(id)
+        +getPlannedQuests() list
+        +goToNextStep() RouteStep
+        +setLanguage(code)
+        +showUI()
+        +hideUI()
+        +toggleUI()
+        +handleSlashCommand(message)
+        +getDiagnostics() list
+        +attachView(view)
+        +setCommandChain(head, handlers)
+    }
+
+    class QuestTracker {
+        -IQuestSource questSource
+        -IPositionProvider positionProvider
+        -RoutePlanner planner
+        -EventBus eventBus
+        +refresh(reason) Route
+        +canReuseRoute(reason, location, quests, strategy) bool
+        +refreshIfMoved(yards) bool
+        +getQuests() list
+        +getRoute() Route
+        +getAvailableQuests() list
+        +planQuest(id) bool
+        +unplanQuest(id) bool
+        +setStrategy(name) bool
+        +compareStrategies() list
+    }
+
+    class EventBus {
+        <<Observer>>
+        -table listeners
+        +subscribe(event, fn) function
+        +publish(event, ...) int
+    }
+
+    class Locale {
+        -table tables
+        -string current
+        +register(code, strings)
+        +setLanguage(code) bool
+        +get(key, ...) string
+    }
+
+    class TrackerPresenter {
+        <<Presenter>>
+        +buildLines(state) list
+        +formatQuest(quest) string
+        +formatStep(step, index, mapID) string
+        +routeHeader(route) string
+        +distanceText(distance) string
+    }
+
+    class ITrackerView {
+        <<interface>>
+        +render(lines, subtitle)
+        +show()
+        +hide()
+        +toggle()
+        +isShown() bool
+    }
+
+    class TrackerFrame {
+        -WidgetFactory widgetFactory
+        +build() Frame
+        +render(lines, subtitle)
+        +show()
+        +hide()
+        +toggle()
+        +isShown() bool
+    }
+
+    class WidgetFactory {
+        <<Factory Method>>
+        +createPanel(name, w, h) Frame
+        +createLabel(parent, font, justify) FontString
+        +createTextLine(parent, size) FontString
+        +createButton(parent, text, w, h, onClick) Button
+        +createCloseButton(parent, onClick) Button
+    }
+
+    class ICommandHandler {
+        <<interface>>
+    }
+
+    Bootstrap ..> QuestAtlasFacade : oluşturur ve bağlar
+    QuestAtlasFacade --> QuestTracker
+    QuestAtlasFacade --> TrackerPresenter
+    QuestAtlasFacade --> ITrackerView
+    QuestAtlasFacade --> ICommandHandler : zincirin başı
+    QuestAtlasFacade --> Locale
+    QuestTracker --> EventBus : TRACKER_UPDATED yayınlar
+    EventBus ..> QuestAtlasFacade : renderView() çağırır
+    ITrackerView <|.. TrackerFrame
+    TrackerFrame --> WidgetFactory
+    TrackerPresenter --> Locale
+
+    note for QuestAtlasFacade "Komutlar, butonlar ve olaylar\nsadece bu sınıfı görür."
+    note for TrackerPresenter "MVP: tüm metin biçimlendirme burada,\nTrackerFrame sadece çizer."
+    note for QuestTracker "Sadece ilerleme değiştiyse (3/10 -> 4/10)\neski rota kullanılır, ATLAS tekrar çalışmaz."

@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuestAtlas Diyagramları</title>
+<style>
+  :root { --ink: #1d2433; --muted: #5b6478; --line: #d9dde6; --bg: #ffffff; --accent: #2f5aa8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 24px 16px 8px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  header p { color: var(--muted); margin: 4px 0; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  button { font: inherit; border: 1px solid var(--line); background: #f5f7fb; color: var(--ink);
+           padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  section { max-width: 1200px; margin: 0 auto; padding: 16px; border-top: 1px solid var(--line); }
+  section h2 { font-size: 19px; margin: 8px 0 2px; }
+  section p { color: var(--muted); margin: 0 0 12px; }
+  .diagram { overflow-x: auto; }
+  .diagram svg { max-width: 100%; height: auto; }
+  .legend { font-size: 13px; color: var(--muted); }
+  .legend code { background: #f1f3f8; padding: 1px 4px; border-radius: 4px; }
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    @page portrait { size: A4 portrait; margin: 10mm; }
+    header .toolbar, section button { display: none; }
+    section { page-break-before: always; border: 0; max-width: none; }
+    section.portrait { page: portrait; }
+    .diagram { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>QuestAtlas: Sınıf ve akış diyagramları</h1>
+  <p>WoW: Forever için görev takipçisi ve ATLAS tabanlı en kısa görev rotası eklentisi.</p>
+  <p class="legend">Okların anlamı: <code>&lt;|..</code> arayüzü uygular,
+     <code>&lt;|--</code> kalıtım, <code>*--</code> bileşim (composition),
+     <code>o--</code> toplama (aggregation), <code>--&gt;</code> ilişki / kullanır,
+     <code>..&gt;</code> bağımlılık / oluşturur. <code>$</code> statik, <code>*</code> soyut metot.</p>
+  <div class="toolbar">
+    <button onclick="window.print()">Yazdır / PDF olarak kaydet</button>
+  </div>
+</header>
+<section class="landscape">
+  <h2>1. Genel mimari</h2>
+  <p>Katmanlar ve aralarındaki bağımlılıklar. «...» işaretleri kullanılan tasarım desenini gösterir.</p>
+  <div class="diagram" id="d1"><pre class="mermaid">
+flowchart TB
+    subgraph GAME[&quot;World of Warcraft istemcisi (veya tools/mock/WowMock.lua)&quot;]
+        API[&quot;WoW API&lt;br/&gt;GetQuestLogTitle, C_QuestLog, C_Map,&lt;br/&gt;CreateFrame, olaylar, SlashCmdList&quot;]
+    end
+
+    subgraph ENTRY[&quot;Giriş noktaları&quot;]
+        BOOT[&quot;Bootstrap&lt;br/&gt;«Composition Root»&lt;br/&gt;olaylar + /qa komutu&quot;]
+        FACADE[&quot;QuestAtlasFacade&lt;br/&gt;«Facade»&quot;]
+    end
+
+    subgraph UI[&quot;UI + Komutlar&quot;]
+        FRAME[&quot;TrackerFrame «View»&quot;]
+        PRESENTER[&quot;TrackerPresenter «Presenter»&quot;]
+        WIDGETS[&quot;WidgetFactory «Factory Method»&quot;]
+        COMMANDS[&quot;CommandHandler zinciri&lt;br/&gt;«Chain of Responsibility»&quot;]
+    end
+
+    subgraph TRACK[&quot;Takip&quot;]
+        TRACKER[&quot;QuestTracker&quot;]
+        BUS[&quot;EventBus «Observer»&quot;]
+    end
+
+    subgraph ROUTE[&quot;Rota planlama&quot;]
+        PLANNER[&quot;RoutePlanner&quot;]
+        SFACTORY[&quot;RouteStrategyFactory «Factory Method»&quot;]
+        STRATS[&quot;AtlasRouteStrategy / NearestNeighbor /&lt;br/&gt;BruteForce «Strategy»&quot;]
+        GBUILDER[&quot;QuestGraphBuilder&quot;]
+    end
+
+    subgraph ALGO[&quot;ATLAS algoritması (savastakan/atlas portu)&quot;]
+        ATLAS[&quot;Atlas&quot;]
+        GRAPH[&quot;Graph + Edge&quot;]
+        POLICY[&quot;ICostPolicy «Strategy»&quot;]
+    end
+
+    subgraph SERVICES[&quot;Servisler&quot;]
+        ADAPTER[&quot;WowApiAdapter «Adapter»&quot;]
+        REPO[&quot;QuestRepository «Repository»&quot;]
+        QFACTORY[&quot;QuestFactory «Factory Method»&quot;]
+        DIST[&quot;DistanceCalculator + MapGeometry zinciri&quot;]
+        POI[&quot;GameQuestPoiProvider / NullQuestPoiProvider&lt;br/&gt;«Null Object» oyunun harita işaretleri&quot;]
+        SETTINGS[&quot;SettingsStore (SavedVariables)&quot;]
+    end
+
+    API --&gt; BOOT
+    BOOT --&gt; FACADE
+    COMMANDS --&gt; FACADE
+    FRAME --&gt; FACADE
+    FACADE --&gt; TRACKER
+    FACADE --&gt; PRESENTER
+    FACADE --&gt; FRAME
+    FRAME --&gt; WIDGETS
+    TRACKER --&gt; BUS
+    BUS -. TRACKER_UPDATED .-&gt; FACADE
+    TRACKER --&gt; PLANNER
+    PLANNER --&gt; SFACTORY
+    SFACTORY --&gt; STRATS
+    STRATS --&gt; GBUILDER
+    STRATS --&gt; ATLAS
+    GBUILDER --&gt; GRAPH
+    ATLAS --&gt; GRAPH
+    ATLAS --&gt; POLICY
+    TRACKER --&gt; QFACTORY
+    TRACKER --&gt; POI
+    POI --&gt; ADAPTER
+    QFACTORY --&gt; REPO
+    TRACKER --&gt; SETTINGS
+    STRATS --&gt; DIST
+    ADAPTER --&gt; API
+    TRACKER --&gt; ADAPTER
+    WIDGETS --&gt; ADAPTER
+</pre></div>
+  <button onclick="downloadSvg('d1', '01-genel-mimari')">SVG indir</button>
+</section>
+<section class="landscape">
+  <h2>2. ATLAS algoritması</h2>
+  <p>Hocanın Java ATLAS kodunun Lua portu ve maliyet stratejileri (Strategy + Factory Method).</p>
+  <div class="diagram" id="d2"><pre class="mermaid">
+classDiagram
+    direction LR
+
+    class Atlas {
+        -ICostPolicy costPolicy
+        -bool keepLastEdge
+        +longestPath(graph, startLabel) list
+        +dfs(graph, startEdge, marked, stack)
+        +bestExtension(graph, currentStart, coverCount) list
+        +getTestSuite(graph, path) string
+        +run(graph) string
+        +coverage(graph, path)$
+        +isContinuous(graph, path)$
+    }
+
+    class Graph {
+        -table nodes
+        -table edges
+        -list starts
+        -list finishes
+        +addVertex(node)
+        +addEdge(label, source, destination, input, output, weight, required, data) Edge
+        +getEdge(label) Edge
+        +getEdgeLabels() list
+        +edgeLabels(node) list
+        +getEdgeCount() int
+        +getNodes() list
+        +getStarts() list
+        +addStart(label)
+        +getFinishes() list
+        +addFinish(label)
+        +getRequiredEdgeCount() int
+        +sortAdjacency(comparator)
+    }
+
+    class Edge {
+        +int label
+        +source
+        +destination
+        +input
+        +output
+        +number weight
+        +bool required
+        +data
+        +getLabel() int
+        +isSelfLoop() bool
+    }
+
+    class ICostPolicy {
+        &lt;&lt;interface&gt;&gt;
+        +initial() cost
+        +extend(cost, edge, isNew) cost
+        +isBetter(a, b) bool
+        +hasGain(cost) bool
+    }
+
+    class UnitCostPolicy {
+        &lt;&lt;Strategy&gt;&gt;
+        +initial() number
+        +extend(cost, edge, isNew) number
+        +isBetter(a, b) bool
+        +hasGain(cost) bool
+    }
+
+    class DistanceAwareCostPolicy {
+        &lt;&lt;Strategy&gt;&gt;
+        +number SCALE
+        +initial() number
+        +extend(cost, edge, isNew) number
+        +isBetter(a, b) bool
+        +hasGain(cost) bool
+        +unpack(cost)$
+    }
+
+    class CostPolicyFactory {
+        &lt;&lt;Factory Method&gt;&gt;
+        -table creators
+        +create(name)$
+    }
+
+    Atlas --&gt; ICostPolicy : maliyet hesabı
+    Atlas ..&gt; Graph : üzerinde yürür
+    Graph &quot;1&quot; *-- &quot;many&quot; Edge : içerir
+    ICostPolicy &lt;|.. UnitCostPolicy
+    ICostPolicy &lt;|.. DistanceAwareCostPolicy
+    CostPolicyFactory ..&gt; ICostPolicy : oluşturur
+
+    note for Atlas &quot;Hocanın Java ATLAS kodunun Lua portu.\nkeepLastEdge=false: Java ile birebir aynı çıktı.\nkeepLastEdge=true: son kenar düşmez (tüm kenarlar kapsanır).&quot;
+    note for UnitCostPolicy &quot;Orijinal ATLAS maliyeti:\nyeni kenar sayısı&quot;
+    note for DistanceAwareCostPolicy &quot;Aynı kapsama -&gt; daha kısa mesafe.\nTek sayıda saklanır (tablo yok, hızlı).&quot;
+</pre></div>
+  <button onclick="downloadSvg('d2', '02-algoritma')">SVG indir</button>
+</section>
+<section class="portrait">
+  <h2>3. Rota planlama</h2>
+  <p>Görevleri ATLAS grafına çeviren ve rotayı üreten sınıflar (Strategy, Factory Method).</p>
+  <div class="diagram" id="d3"><pre class="mermaid">
+classDiagram
+    direction TB
+
+    class IRouteStrategy {
+        &lt;&lt;interface&gt;&gt;
+        +getName() string
+        +plan(start, tasks) Route
+    }
+
+    class AtlasRouteStrategy {
+        &lt;&lt;Strategy&gt;&gt;
+        -list orders
+        -int multiStartLimit
+        -QuestGraphBuilder graphBuilder
+        -Atlas atlas
+        +getName() string
+        +plan(start, tasks) Route
+        +computeWalk(start, tasks, orderName) list
+        +taskOrderFromWalk(graph, walk, tasks)$
+    }
+
+    class NearestNeighborRouteStrategy {
+        &lt;&lt;Strategy&gt;&gt;
+        +getName() string
+        +plan(start, tasks) Route
+        +order(start, tasks) list
+    }
+
+    class BruteForceRouteStrategy {
+        &lt;&lt;Strategy&gt;&gt;
+        -int maxTasks
+        -IRouteStrategy fallback
+        +getName() string
+        +plan(start, tasks) Route
+    }
+
+    class RouteStrategyFactory {
+        &lt;&lt;Factory Method&gt;&gt;
+        -table creators
+        +register(name, creator)
+        +has(name) bool
+        +create(name) IRouteStrategy
+        +getNames() list
+        +nextName(current) string
+    }
+
+    class RoutePlanner {
+        -RouteTaskBuilder taskBuilder
+        -RouteStrategyFactory strategyFactory
+        -function clock
+        +plan(start, quests, strategyName) Route
+        +signature(quests, strategyName) string
+        +compare(start, quests) list
+    }
+
+    class RouteTaskBuilder {
+        +build(quests) list
+        +waypointsFor(quest) list
+    }
+
+    class QuestGraphBuilder {
+        +ORDERS
+        +DEFAULT_ORDER
+        -IDistanceCalculator distanceCalculator
+        +build(start, tasks, orderName) BuiltGraph
+        +applyOrder(graph, orderName)$
+    }
+
+    class RouteAssembler {
+        &lt;&lt;utility&gt;&gt;
+        +orderDistance(start, tasks, calc)$
+        +fromTaskOrder(name, start, tasks, calc)$
+    }
+
+    class RouteTask {
+        +string id
+        +list waypoints
+        +list quests
+        +startLocation() Location
+        +endLocation() Location
+        +signature() string
+        +internalDistance(calc) number
+    }
+
+    class Route {
+        +string strategyName
+        +list steps
+        +number totalDistance
+        +list taskOrder
+        +list unroutable
+        +number computeTimeMs
+        +string reason
+        +string signature
+        +empty(name, reason)$
+        +isEmpty() bool
+        +getNextStep() RouteStep
+    }
+
+    class RouteStep {
+        +StepKind kind
+        +Location location
+        +list quests
+        +number legDistance
+        +number cumulativeDistance
+    }
+
+    IRouteStrategy &lt;|.. AtlasRouteStrategy
+    IRouteStrategy &lt;|.. NearestNeighborRouteStrategy
+    IRouteStrategy &lt;|.. BruteForceRouteStrategy
+    BruteForceRouteStrategy o-- IRouteStrategy : fallback
+    AtlasRouteStrategy --&gt; QuestGraphBuilder
+    AtlasRouteStrategy --&gt; Atlas
+    QuestGraphBuilder ..&gt; Graph : oluşturur
+    RouteStrategyFactory ..&gt; IRouteStrategy : oluşturur
+    RoutePlanner --&gt; RouteTaskBuilder
+    RoutePlanner --&gt; RouteStrategyFactory
+    RouteTaskBuilder ..&gt; RouteTask : oluşturur
+    AtlasRouteStrategy ..&gt; RouteAssembler
+    NearestNeighborRouteStrategy ..&gt; RouteAssembler
+    BruteForceRouteStrategy ..&gt; RouteAssembler
+    RouteAssembler ..&gt; Route : oluşturur
+    Route &quot;1&quot; *-- &quot;many&quot; RouteStep
+    Route o-- RouteTask : taskOrder
+
+    note for AtlasRouteStrategy &quot;Görevler -&gt; graf: düğüm = yer,\nzorunlu kenar = görev, opsiyonel kenar = yolculuk.\n4 keşif sırasıyla ATLAS çalışır, en kısa rota seçilir.&quot;
+    note for RouteStrategyFactory &quot;Yeni algoritma = register() ile ekle.\nMevcut kod değişmez (Open/Closed).&quot;
+</pre></div>
+  <button onclick="downloadSvg('d3', '03-rota-planlama')">SVG indir</button>
+</section>
+<section class="portrait">
+  <h2>4. Servisler ve alan modeli</h2>
+  <p>Oyun API&#x27;sine erişim (Adapter), görev veritabanı (Repository), görev nesneleri (Factory Method).</p>
+  <div class="diagram" id="d4"><pre class="mermaid">
+classDiagram
+    direction TB
+
+    class WowApiAdapter {
+        &lt;&lt;Adapter&gt;&gt;
+        -table env
+        +getQuestApiFlavor() string
+        +getQuestLogEntries() list
+        +getQuestPoiLocations(questIDs) table
+        +hasQuestPoiApi() bool
+        +hasWaypointApi() bool
+        +getClientInfo() table
+        +isQuestCompleted(questID) bool
+        +getPlayerInfo() table
+        +getPlayerMapPosition() table
+        +getWorldPosition(mapID, x, y)
+        +getMapName(mapID) string
+        +setWaypoint(mapID, x, y) bool
+        +printMessage(text)
+        +after(seconds, fn)
+        +newTicker(seconds, fn)
+        +createFrame(type, name, parent, template)
+    }
+
+    class IQuestSource {
+        &lt;&lt;interface&gt;&gt;
+        +readQuests() list
+    }
+    class QuestLogReader {
+        -WowApiAdapter api
+        -QuestFactory questFactory
+        -IQuestPoiProvider poiProvider
+        +readQuests() list
+    }
+
+    class IQuestPoiProvider {
+        &lt;&lt;interface&gt;&gt;
+        +getQuestPois(questIDs) table
+    }
+    class GameQuestPoiProvider {
+        -WowApiAdapter api
+        +getQuestPois(questIDs) table
+    }
+    class NullQuestPoiProvider {
+        &lt;&lt;Null Object&gt;&gt;
+        +getQuestPois(questIDs) table
+    }
+
+    class IPositionProvider {
+        &lt;&lt;interface&gt;&gt;
+        +getPlayerLocation() Location
+    }
+    class PlayerPositionProvider {
+        -WowApiAdapter api
+        +getPlayerLocation() Location
+    }
+
+    class IQuestRepository {
+        &lt;&lt;interface&gt;&gt;
+        +getQuest(id)
+        +getNpc(key)
+        +getAllQuestIds() list
+        +findAvailable(player, isCompleted, inLog) list
+    }
+    class QuestRepository {
+        &lt;&lt;Repository&gt;&gt;
+        -table data
+        +getNpcLocation(key) Location
+    }
+
+    class QuestFactory {
+        &lt;&lt;Factory Method&gt;&gt;
+        -IQuestRepository repository
+        -table creators
+        +create(kind, source) Quest
+        +registerCreator(kind, creator)
+        +createFromLogEntry(entry) Quest
+        +createPlanned(questID) Quest
+    }
+
+    class IMapGeometry {
+        &lt;&lt;interface&gt;&gt;
+        +toWorld(location) table
+    }
+    class ApiMapGeometry
+    class StaticMapGeometry
+    class ChainedMapGeometry {
+        &lt;&lt;Chain of Responsibility&gt;&gt;
+        -list geometries
+    }
+
+    class IDistanceCalculator {
+        &lt;&lt;interface&gt;&gt;
+        +distance(a, b) number
+    }
+    class DistanceCalculator {
+        -IMapGeometry geometry
+        -table cache
+        +distance(a, b) number
+    }
+
+    class ISettingsStore {
+        &lt;&lt;interface&gt;&gt;
+        +get(key)
+        +set(key, value)
+    }
+    class SettingsStore {
+        +DEFAULTS
+        +load() table
+    }
+
+    class Quest {
+        +id
+        +title
+        +level
+        +QuestStatus status
+        +list objectives
+        +Location giver
+        +Location turnIn
+        +bool known
+        +string locationSource
+        +isPlanned() bool
+        +isReady() bool
+        +isFailed() bool
+        +remainingObjectives() list
+        +isRoutable() bool
+    }
+    class QuestObjective {
+        +index
+        +text
+        +bool finished
+        +Location location
+    }
+    class Location {
+        +mapID
+        +x
+        +y
+        +label
+        +key() string
+        +equals(other) bool
+        +describe() string
+    }
+    class QuestStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        PLANNED
+        IN_PROGRESS
+        READY
+        FAILED
+    }
+
+    IQuestSource &lt;|.. QuestLogReader
+    IPositionProvider &lt;|.. PlayerPositionProvider
+    IQuestRepository &lt;|.. QuestRepository
+    IMapGeometry &lt;|.. ApiMapGeometry
+    IMapGeometry &lt;|.. StaticMapGeometry
+    IMapGeometry &lt;|.. ChainedMapGeometry
+    ChainedMapGeometry o-- IMapGeometry : sırayla sorar
+    IDistanceCalculator &lt;|.. DistanceCalculator
+    ISettingsStore &lt;|.. SettingsStore
+    QuestLogReader --&gt; WowApiAdapter
+    QuestLogReader --&gt; QuestFactory
+    QuestLogReader --&gt; IQuestPoiProvider : harita işaretleri
+    IQuestPoiProvider &lt;|.. GameQuestPoiProvider
+    IQuestPoiProvider &lt;|.. NullQuestPoiProvider
+    GameQuestPoiProvider --&gt; WowApiAdapter
+    PlayerPositionProvider --&gt; WowApiAdapter
+    ApiMapGeometry --&gt; WowApiAdapter
+    DistanceCalculator --&gt; IMapGeometry
+    QuestFactory --&gt; IQuestRepository
+    QuestFactory ..&gt; Quest : oluşturur
+    Quest &quot;1&quot; *-- &quot;many&quot; QuestObjective
+    Quest --&gt; Location
+    QuestObjective --&gt; Location
+    Quest --&gt; QuestStatus
+
+    note for WowApiAdapter &quot;WoW API&#x27;yi çağıran TEK sınıf.\nEski (GetQuestLogTitle) ve yeni (C_QuestLog)\ngörev API&#x27;lerini aynı arayüze çevirir.&quot;
+    note for QuestFactory &quot;Önce veritabanı; bilmediğini\noyunun harita işareti (POI) tamamlar.&quot;
+</pre></div>
+  <button onclick="downloadSvg('d4', '04-servisler-ve-model')">SVG indir</button>
+</section>
+<section class="landscape">
+  <h2>5. Takip ve arayüz</h2>
+  <p>Facade, Observer (EventBus), MVP (Presenter/View), Factory Method (WidgetFactory), Composition Root.</p>
+  <div class="diagram" id="d5"><pre class="mermaid">
+classDiagram
+    direction LR
+
+    class Bootstrap {
+        &lt;&lt;Composition Root&gt;&gt;
+        +CreateApp(env)$
+        -onEvent(event, ...)
+        -scheduleRefresh(reason)
+    }
+
+    class QuestAtlasFacade {
+        &lt;&lt;Facade&gt;&gt;
+        +refresh(reason)
+        +getQuests() list
+        +getRoute() Route
+        +setStrategy(name)
+        +cycleStrategy()
+        +compareStrategies() list
+        +getAvailableQuests() list
+        +planQuest(id)
+        +unplanQuest(id)
+        +getPlannedQuests() list
+        +goToNextStep() RouteStep
+        +setLanguage(code)
+        +showUI()
+        +hideUI()
+        +toggleUI()
+        +handleSlashCommand(message)
+        +getDiagnostics() list
+        +attachView(view)
+        +setCommandChain(head, handlers)
+    }
+
+    class QuestTracker {
+        -IQuestSource questSource
+        -IPositionProvider positionProvider
+        -RoutePlanner planner
+        -EventBus eventBus
+        +refresh(reason) Route
+        +canReuseRoute(reason, location, quests, strategy) bool
+        +refreshIfMoved(yards) bool
+        +getQuests() list
+        +getRoute() Route
+        +getAvailableQuests() list
+        +planQuest(id) bool
+        +unplanQuest(id) bool
+        +setStrategy(name) bool
+        +compareStrategies() list
+    }
+
+    class EventBus {
+        &lt;&lt;Observer&gt;&gt;
+        -table listeners
+        +subscribe(event, fn) function
+        +publish(event, ...) int
+    }
+
+    class Locale {
+        -table tables
+        -string current
+        +register(code, strings)
+        +setLanguage(code) bool
+        +get(key, ...) string
+    }
+
+    class TrackerPresenter {
+        &lt;&lt;Presenter&gt;&gt;
+        +buildLines(state) list
+        +formatQuest(quest) string
+        +formatStep(step, index, mapID) string
+        +routeHeader(route) string
+        +distanceText(distance) string
+    }
+
+    class ITrackerView {
+        &lt;&lt;interface&gt;&gt;
+        +render(lines, subtitle)
+        +show()
+        +hide()
+        +toggle()
+        +isShown() bool
+    }
+
+    class TrackerFrame {
+        -WidgetFactory widgetFactory
+        +build() Frame
+        +render(lines, subtitle)
+        +show()
+        +hide()
+        +toggle()
+        +isShown() bool
+    }
+
+    class WidgetFactory {
+        &lt;&lt;Factory Method&gt;&gt;
+        +createPanel(name, w, h) Frame
+        +createLabel(parent, font, justify) FontString
+        +createTextLine(parent, size) FontString
+        +createButton(parent, text, w, h, onClick) Button
+        +createCloseButton(parent, onClick) Button
+    }
+
+    class ICommandHandler {
+        &lt;&lt;interface&gt;&gt;
+    }
+
+    Bootstrap ..&gt; QuestAtlasFacade : oluşturur ve bağlar
+    QuestAtlasFacade --&gt; QuestTracker
+    QuestAtlasFacade --&gt; TrackerPresenter
+    QuestAtlasFacade --&gt; ITrackerView
+    QuestAtlasFacade --&gt; ICommandHandler : zincirin başı
+    QuestAtlasFacade --&gt; Locale
+    QuestTracker --&gt; EventBus : TRACKER_UPDATED yayınlar
+    EventBus ..&gt; QuestAtlasFacade : renderView() çağırır
+    ITrackerView &lt;|.. TrackerFrame
+    TrackerFrame --&gt; WidgetFactory
+    TrackerPresenter --&gt; Locale
+
+    note for QuestAtlasFacade &quot;Komutlar, butonlar ve olaylar\nsadece bu sınıfı görür.&quot;
+    note for TrackerPresenter &quot;MVP: tüm metin biçimlendirme burada,\nTrackerFrame sadece çizer.&quot;
+    note for QuestTracker &quot;Sadece ilerleme değiştiyse (3/10 -&gt; 4/10)\neski rota kullanılır, ATLAS tekrar çalışmaz.&quot;
+</pre></div>
+  <button onclick="downloadSvg('d5', '05-takip-ve-arayuz')">SVG indir</button>
+</section>
+<section class="portrait">
+  <h2>6. Slash komutları</h2>
+  <p>Chain of Responsibility + Template Method: her /qa komutu ayrı bir sınıf.</p>
+  <div class="diagram" id="d6"><pre class="mermaid">
+classDiagram
+    direction LR
+
+    class QuestAtlasFacade {
+        &lt;&lt;Facade&gt;&gt;
+        +handleSlashCommand(message)
+    }
+
+    class ICommandHandler {
+        &lt;&lt;interface&gt;&gt;
+        +setNext(handler) handler
+        +handle(context, command, args) bool
+    }
+
+    class CommandHandler {
+        &lt;&lt;abstract&gt;&gt;
+        -list names
+        -string helpKey
+        -ICommandHandler nextHandler
+        +setNext(handler) handler
+        +handle(context, command, args) bool
+        +canHandle(command) bool
+        +execute(context, args)*
+        +getHelpKey() string
+    }
+
+    class CommandChainFactory {
+        &lt;&lt;Factory Method&gt;&gt;
+        +ORDER
+        +build()$
+    }
+
+    class HelpCommand {
+        help, ?, boş
+    }
+    class ToggleCommand {
+        toggle, ui
+    }
+    class ShowCommand {
+        show
+    }
+    class HideCommand {
+        hide
+    }
+    class RefreshCommand {
+        refresh, r
+    }
+    class RouteCommand {
+        route
+    }
+    class NextCommand {
+        next, way
+    }
+    class StrategyCommand {
+        strategy, s
+    }
+    class CompareCommand {
+        compare
+    }
+    class AvailableCommand {
+        available, av
+    }
+    class PlanCommand {
+        plan, p
+    }
+    class LanguageCommand {
+        lang, language
+    }
+    class DebugCommand {
+        debug, diag
+    }
+    class UnknownCommand {
+        her şey - zincirin sonu
+    }
+
+    QuestAtlasFacade --&gt; ICommandHandler : handle(self, komut, argümanlar)
+    ICommandHandler &lt;|.. CommandHandler
+    CommandHandler --&gt; ICommandHandler : next
+    CommandChainFactory ..&gt; CommandHandler : zinciri kurar
+    CommandHandler &lt;|-- HelpCommand
+    CommandHandler &lt;|-- ToggleCommand
+    CommandHandler &lt;|-- ShowCommand
+    CommandHandler &lt;|-- HideCommand
+    CommandHandler &lt;|-- RefreshCommand
+    CommandHandler &lt;|-- RouteCommand
+    CommandHandler &lt;|-- NextCommand
+    CommandHandler &lt;|-- StrategyCommand
+    CommandHandler &lt;|-- CompareCommand
+    CommandHandler &lt;|-- AvailableCommand
+    CommandHandler &lt;|-- PlanCommand
+    CommandHandler &lt;|-- LanguageCommand
+    CommandHandler &lt;|-- DebugCommand
+    CommandHandler &lt;|-- UnknownCommand
+
+    note for CommandHandler &quot;Template Method: handle() sabit,\nalt sınıflar sadece execute() yazar.\nChain of Responsibility: işleyemezse\nkomutu next&#x27;e (sıradakine) verir.&quot;
+</pre></div>
+  <button onclick="downloadSvg('d6', '06-komutlar')">SVG indir</button>
+</section>
+<section class="portrait">
+  <h2>7. Sadeleştirilmiş sınıf diyagramı (ezber için)</h2>
+  <p>Elle çizilecekse bu yeterli: ana sınıflar, desenler ve en önemli metotlar.</p>
+  <div class="diagram" id="d7"><pre class="mermaid">
+classDiagram
+    direction TB
+
+    class QuestAtlasFacade {
+        &lt;&lt;Facade&gt;&gt;
+        +refresh()
+        +setStrategy(name)
+        +planQuest(id)
+        +handleSlashCommand(msg)
+    }
+    class QuestTracker {
+        +refresh() Route
+        +getQuests()
+        +getRoute()
+    }
+    class EventBus {
+        &lt;&lt;Observer&gt;&gt;
+        +subscribe(event, fn)
+        +publish(event)
+    }
+    class RoutePlanner {
+        +plan(start, quests, strategy) Route
+    }
+    class RouteStrategyFactory {
+        &lt;&lt;Factory Method&gt;&gt;
+        +create(name) IRouteStrategy
+    }
+    class IRouteStrategy {
+        &lt;&lt;interface&gt;&gt;
+        +plan(start, tasks) Route
+    }
+    class AtlasRouteStrategy
+    class NearestNeighborRouteStrategy
+    class BruteForceRouteStrategy
+    class Atlas {
+        +longestPath(graph, start) list
+    }
+    class Graph {
+        +addEdge(...)
+        +edgeLabels(node)
+    }
+    class WowApiAdapter {
+        &lt;&lt;Adapter&gt;&gt;
+        +getQuestLogEntries()
+        +getPlayerMapPosition()
+    }
+    class QuestFactory {
+        &lt;&lt;Factory Method&gt;&gt;
+        +create(kind, source) Quest
+    }
+    class QuestRepository {
+        &lt;&lt;Repository&gt;&gt;
+        +getQuest(id)
+    }
+    class CommandHandler {
+        &lt;&lt;Chain of Responsibility&gt;&gt;
+        +setNext(handler)
+        +handle(cmd)
+        +execute()*
+    }
+    class TrackerFrame {
+        +render(lines)
+    }
+
+    QuestAtlasFacade --&gt; QuestTracker
+    QuestAtlasFacade --&gt; TrackerFrame
+    CommandHandler --&gt; QuestAtlasFacade : kullanır
+    QuestTracker --&gt; EventBus
+    QuestTracker --&gt; RoutePlanner
+    QuestTracker --&gt; QuestFactory
+    QuestTracker --&gt; WowApiAdapter
+    QuestFactory --&gt; QuestRepository
+    RoutePlanner --&gt; RouteStrategyFactory
+    RouteStrategyFactory ..&gt; IRouteStrategy
+    IRouteStrategy &lt;|.. AtlasRouteStrategy
+    IRouteStrategy &lt;|.. NearestNeighborRouteStrategy
+    IRouteStrategy &lt;|.. BruteForceRouteStrategy
+    AtlasRouteStrategy --&gt; Atlas
+    Atlas --&gt; Graph
+</pre></div>
+  <button onclick="downloadSvg('d7', '07-sade-diyagram')">SVG indir</button>
+</section>
+<section class="landscape">
+  <h2>8. Sıralı diyagram: görev günlüğü değişince ne olur?</h2>
+  <p>Bir oyun olayından ekrandaki rotaya kadar çağrı sırası.</p>
+  <div class="diagram" id="d8"><pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant WoW as WoW istemcisi
+    participant Boot as Bootstrap
+    participant F as QuestAtlasFacade
+    participant T as QuestTracker
+    participant R as QuestLogReader
+    participant P as RoutePlanner
+    participant S as AtlasRouteStrategy
+    participant A as Atlas
+    participant B as EventBus
+    participant V as TrackerFrame
+
+    WoW-&gt;&gt;Boot: QUEST_LOG_UPDATE (olay)
+    Boot-&gt;&gt;Boot: 0.3 sn bekle (olay patlamalarını birleştir)
+    Boot-&gt;&gt;F: refresh(&quot;QUEST_LOG_UPDATE&quot;)
+    F-&gt;&gt;T: refresh(reason)
+    T-&gt;&gt;R: readQuests()
+    R-&gt;&gt;WoW: GetQuestLogTitle / C_QuestLog (Adapter üzerinden)
+    R-&gt;&gt;WoW: GetQuestsOnMap (oyunun harita işaretleri, retail)
+    R--&gt;&gt;T: Quest listesi (QuestFactory ile)
+    T-&gt;&gt;WoW: oyuncunun konumu (PlayerPositionProvider)
+    T-&gt;&gt;P: signature(görevler) - rota değişir mi?
+    alt sadece ilerleme değişti ve oyuncu yakında
+        T-&gt;&gt;T: eski rotayı kullan (ATLAS çalışmaz)
+    else görevler / duraklar değişti
+        T-&gt;&gt;P: plan(konum, görevler, &quot;atlas&quot;)
+        P-&gt;&gt;P: RouteTaskBuilder.build(görevler)
+        P-&gt;&gt;S: plan(başlangıç, görevler)
+        S-&gt;&gt;S: QuestGraphBuilder.build() - görev grafı
+        loop 4 keşif sırası
+            S-&gt;&gt;A: longestPath(graf, başlangıç kenarı)
+            A--&gt;&gt;S: tüm görev kenarlarını kapsayan yürüyüş
+        end
+        S--&gt;&gt;P: en kısa Route
+        P--&gt;&gt;T: Route
+    end
+    T-&gt;&gt;B: publish(&quot;TRACKER_UPDATED&quot;)
+    B-&gt;&gt;F: renderView()
+    F-&gt;&gt;F: TrackerPresenter.buildLines()
+    F-&gt;&gt;V: render(satırlar)
+</pre></div>
+  <button onclick="downloadSvg('d8', '08-akis-gorev-guncelleme')">SVG indir</button>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: "default", securityLevel: "strict",
+                        classDiagram: { useMaxWidth: true }, flowchart: { useMaxWidth: true } });
+  function downloadSvg(id, name) {
+    var svg = document.querySelector("#" + id + " svg");
+    if (!svg) { alert("Diyagram henüz çizilmedi."); return; }
+    var data = new XMLSerializer().serializeToString(svg);
+    var blob = new Blob([data], { type: "image/svg+xml" });
+    var link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = name + ".svg";
+    link.click();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    participant WoW as WoW istemcisi
+    participant Boot as Bootstrap
+    participant F as QuestAtlasFacade
+    participant T as QuestTracker
+    participant R as QuestLogReader
+    participant P as RoutePlanner
+    participant S as AtlasRouteStrategy
+    participant A as Atlas
+    participant B as EventBus
+    participant V as TrackerFrame
+
+    WoW->>Boot: QUEST_LOG_UPDATE (olay)
+    Boot->>Boot: 0.3 sn bekle (olay patlamalarını birleştir)
+    Boot->>F: refresh("QUEST_LOG_UPDATE")
+    F->>T: refresh(reason)
+    T->>R: readQuests()
+    R->>WoW: GetQuestLogTitle / C_QuestLog (Adapter üzerinden)
+    R->>WoW: GetQuestsOnMap (oyunun harita işaretleri, retail)
+    R-->>T: Quest listesi (QuestFactory ile)
+    T->>WoW: oyuncunun konumu (PlayerPositionProvider)
+    T->>P: signature(görevler) - rota değişir mi?
+    alt sadece ilerleme değişti ve oyuncu yakında
+        T->>T: eski rotayı kullan (ATLAS çalışmaz)
+    else görevler / duraklar değişti
+        T->>P: plan(konum, görevler, "atlas")
+        P->>P: RouteTaskBuilder.build(görevler)
+        P->>S: plan(başlangıç, görevler)
+        S->>S: QuestGraphBuilder.build() - görev grafı
+        loop 4 keşif sırası
+            S->>A: longestPath(graf, başlangıç kenarı)
+            A-->>S: tüm görev kenarlarını kapsayan yürüyüş
+        end
+        S-->>P: en kısa Route
+        P-->>T: Route
+    end
+    T->>B: publish("TRACKER_UPDATED")
+    B->>F: renderView()
+    F->>F: TrackerPresenter.buildLines()
+    F->>V: render(satırlar)

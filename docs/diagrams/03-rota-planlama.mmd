@@ -1,0 +1,126 @@
+classDiagram
+    direction TB
+
+    class IRouteStrategy {
+        <<interface>>
+        +getName() string
+        +plan(start, tasks) Route
+    }
+
+    class AtlasRouteStrategy {
+        <<Strategy>>
+        -list orders
+        -int multiStartLimit
+        -QuestGraphBuilder graphBuilder
+        -Atlas atlas
+        +getName() string
+        +plan(start, tasks) Route
+        +computeWalk(start, tasks, orderName) list
+        +taskOrderFromWalk(graph, walk, tasks)$
+    }
+
+    class NearestNeighborRouteStrategy {
+        <<Strategy>>
+        +getName() string
+        +plan(start, tasks) Route
+        +order(start, tasks) list
+    }
+
+    class BruteForceRouteStrategy {
+        <<Strategy>>
+        -int maxTasks
+        -IRouteStrategy fallback
+        +getName() string
+        +plan(start, tasks) Route
+    }
+
+    class RouteStrategyFactory {
+        <<Factory Method>>
+        -table creators
+        +register(name, creator)
+        +has(name) bool
+        +create(name) IRouteStrategy
+        +getNames() list
+        +nextName(current) string
+    }
+
+    class RoutePlanner {
+        -RouteTaskBuilder taskBuilder
+        -RouteStrategyFactory strategyFactory
+        -function clock
+        +plan(start, quests, strategyName) Route
+        +signature(quests, strategyName) string
+        +compare(start, quests) list
+    }
+
+    class RouteTaskBuilder {
+        +build(quests) list
+        +waypointsFor(quest) list
+    }
+
+    class QuestGraphBuilder {
+        +ORDERS
+        +DEFAULT_ORDER
+        -IDistanceCalculator distanceCalculator
+        +build(start, tasks, orderName) BuiltGraph
+        +applyOrder(graph, orderName)$
+    }
+
+    class RouteAssembler {
+        <<utility>>
+        +orderDistance(start, tasks, calc)$
+        +fromTaskOrder(name, start, tasks, calc)$
+    }
+
+    class RouteTask {
+        +string id
+        +list waypoints
+        +list quests
+        +startLocation() Location
+        +endLocation() Location
+        +signature() string
+        +internalDistance(calc) number
+    }
+
+    class Route {
+        +string strategyName
+        +list steps
+        +number totalDistance
+        +list taskOrder
+        +list unroutable
+        +number computeTimeMs
+        +string reason
+        +string signature
+        +empty(name, reason)$
+        +isEmpty() bool
+        +getNextStep() RouteStep
+    }
+
+    class RouteStep {
+        +StepKind kind
+        +Location location
+        +list quests
+        +number legDistance
+        +number cumulativeDistance
+    }
+
+    IRouteStrategy <|.. AtlasRouteStrategy
+    IRouteStrategy <|.. NearestNeighborRouteStrategy
+    IRouteStrategy <|.. BruteForceRouteStrategy
+    BruteForceRouteStrategy o-- IRouteStrategy : fallback
+    AtlasRouteStrategy --> QuestGraphBuilder
+    AtlasRouteStrategy --> Atlas
+    QuestGraphBuilder ..> Graph : oluşturur
+    RouteStrategyFactory ..> IRouteStrategy : oluşturur
+    RoutePlanner --> RouteTaskBuilder
+    RoutePlanner --> RouteStrategyFactory
+    RouteTaskBuilder ..> RouteTask : oluşturur
+    AtlasRouteStrategy ..> RouteAssembler
+    NearestNeighborRouteStrategy ..> RouteAssembler
+    BruteForceRouteStrategy ..> RouteAssembler
+    RouteAssembler ..> Route : oluşturur
+    Route "1" *-- "many" RouteStep
+    Route o-- RouteTask : taskOrder
+
+    note for AtlasRouteStrategy "Görevler -> graf: düğüm = yer,\nzorunlu kenar = görev, opsiyonel kenar = yolculuk.\n4 keşif sırasıyla ATLAS çalışır, en kısa rota seçilir."
+    note for RouteStrategyFactory "Yeni algoritma = register() ile ekle.\nMevcut kod değişmez (Open/Closed)."

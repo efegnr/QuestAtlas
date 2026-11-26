@@ -1,0 +1,71 @@
+flowchart TB
+    subgraph GAME["World of Warcraft istemcisi (veya tools/mock/WowMock.lua)"]
+        API["WoW API<br/>GetQuestLogTitle, C_QuestLog, C_Map,<br/>CreateFrame, olaylar, SlashCmdList"]
+    end
+
+    subgraph ENTRY["Giriş noktaları"]
+        BOOT["Bootstrap<br/>«Composition Root»<br/>olaylar + /qa komutu"]
+        FACADE["QuestAtlasFacade<br/>«Facade»"]
+    end
+
+    subgraph UI["UI + Komutlar"]
+        FRAME["TrackerFrame «View»"]
+        PRESENTER["TrackerPresenter «Presenter»"]
+        WIDGETS["WidgetFactory «Factory Method»"]
+        COMMANDS["CommandHandler zinciri<br/>«Chain of Responsibility»"]
+    end
+
+    subgraph TRACK["Takip"]
+        TRACKER["QuestTracker"]
+        BUS["EventBus «Observer»"]
+    end
+
+    subgraph ROUTE["Rota planlama"]
+        PLANNER["RoutePlanner"]
+        SFACTORY["RouteStrategyFactory «Factory Method»"]
+        STRATS["AtlasRouteStrategy / NearestNeighbor /<br/>BruteForce «Strategy»"]
+        GBUILDER["QuestGraphBuilder"]
+    end
+
+    subgraph ALGO["ATLAS algoritması (savastakan/atlas portu)"]
+        ATLAS["Atlas"]
+        GRAPH["Graph + Edge"]
+        POLICY["ICostPolicy «Strategy»"]
+    end
+
+    subgraph SERVICES["Servisler"]
+        ADAPTER["WowApiAdapter «Adapter»"]
+        REPO["QuestRepository «Repository»"]
+        QFACTORY["QuestFactory «Factory Method»"]
+        DIST["DistanceCalculator + MapGeometry zinciri"]
+        POI["GameQuestPoiProvider / NullQuestPoiProvider<br/>«Null Object» oyunun harita işaretleri"]
+        SETTINGS["SettingsStore (SavedVariables)"]
+    end
+
+    API --> BOOT
+    BOOT --> FACADE
+    COMMANDS --> FACADE
+    FRAME --> FACADE
+    FACADE --> TRACKER
+    FACADE --> PRESENTER
+    FACADE --> FRAME
+    FRAME --> WIDGETS
+    TRACKER --> BUS
+    BUS -. TRACKER_UPDATED .-> FACADE
+    TRACKER --> PLANNER
+    PLANNER --> SFACTORY
+    SFACTORY --> STRATS
+    STRATS --> GBUILDER
+    STRATS --> ATLAS
+    GBUILDER --> GRAPH
+    ATLAS --> GRAPH
+    ATLAS --> POLICY
+    TRACKER --> QFACTORY
+    TRACKER --> POI
+    POI --> ADAPTER
+    QFACTORY --> REPO
+    TRACKER --> SETTINGS
+    STRATS --> DIST
+    ADAPTER --> API
+    TRACKER --> ADAPTER
+    WIDGETS --> ADAPTER

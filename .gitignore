@@ -1,0 +1,9 @@
+# Python / Java çıktıları
+__pycache__/
+*.pyc
+*.class
+
+# İşletim sistemi / OneDrive
+Thumbs.db
+desktop.ini
+.DS_Store

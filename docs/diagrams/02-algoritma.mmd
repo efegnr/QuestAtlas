@@ -1,0 +1,90 @@
+classDiagram
+    direction LR
+
+    class Atlas {
+        -ICostPolicy costPolicy
+        -bool keepLastEdge
+        +longestPath(graph, startLabel) list
+        +dfs(graph, startEdge, marked, stack)
+        +bestExtension(graph, currentStart, coverCount) list
+        +getTestSuite(graph, path) string
+        +run(graph) string
+        +coverage(graph, path)$
+        +isContinuous(graph, path)$
+    }
+
+    class Graph {
+        -table nodes
+        -table edges
+        -list starts
+        -list finishes
+        +addVertex(node)
+        +addEdge(label, source, destination, input, output, weight, required, data) Edge
+        +getEdge(label) Edge
+        +getEdgeLabels() list
+        +edgeLabels(node) list
+        +getEdgeCount() int
+        +getNodes() list
+        +getStarts() list
+        +addStart(label)
+        +getFinishes() list
+        +addFinish(label)
+        +getRequiredEdgeCount() int
+        +sortAdjacency(comparator)
+    }
+
+    class Edge {
+        +int label
+        +source
+        +destination
+        +input
+        +output
+        +number weight
+        +bool required
+        +data
+        +getLabel() int
+        +isSelfLoop() bool
+    }
+
+    class ICostPolicy {
+        <<interface>>
+        +initial() cost
+        +extend(cost, edge, isNew) cost
+        +isBetter(a, b) bool
+        +hasGain(cost) bool
+    }
+
+    class UnitCostPolicy {
+        <<Strategy>>
+        +initial() number
+        +extend(cost, edge, isNew) number
+        +isBetter(a, b) bool
+        +hasGain(cost) bool
+    }
+
+    class DistanceAwareCostPolicy {
+        <<Strategy>>
+        +number SCALE
+        +initial() number
+        +extend(cost, edge, isNew) number
+        +isBetter(a, b) bool
+        +hasGain(cost) bool
+        +unpack(cost)$
+    }
+
+    class CostPolicyFactory {
+        <<Factory Method>>
+        -table creators
+        +create(name)$
+    }
+
+    Atlas --> ICostPolicy : maliyet hesabı
+    Atlas ..> Graph : üzerinde yürür
+    Graph "1" *-- "many" Edge : içerir
+    ICostPolicy <|.. UnitCostPolicy
+    ICostPolicy <|.. DistanceAwareCostPolicy
+    CostPolicyFactory ..> ICostPolicy : oluşturur
+
+    note for Atlas "Hocanın Java ATLAS kodunun Lua portu.\nkeepLastEdge=false: Java ile birebir aynı çıktı.\nkeepLastEdge=true: son kenar düşmez (tüm kenarlar kapsanır)."
+    note for UnitCostPolicy "Orijinal ATLAS maliyeti:\nyeni kenar sayısı"
+    note for DistanceAwareCostPolicy "Aynı kapsama -> daha kısa mesafe.\nTek sayıda saklanır (tablo yok, hızlı)."

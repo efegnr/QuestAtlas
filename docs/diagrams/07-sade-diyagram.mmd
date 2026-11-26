@@ -1,0 +1,79 @@
+classDiagram
+    direction TB
+
+    class QuestAtlasFacade {
+        <<Facade>>
+        +refresh()
+        +setStrategy(name)
+        +planQuest(id)
+        +handleSlashCommand(msg)
+    }
+    class QuestTracker {
+        +refresh() Route
+        +getQuests()
+        +getRoute()
+    }
+    class EventBus {
+        <<Observer>>
+        +subscribe(event, fn)
+        +publish(event)
+    }
+    class RoutePlanner {
+        +plan(start, quests, strategy) Route
+    }
+    class RouteStrategyFactory {
+        <<Factory Method>>
+        +create(name) IRouteStrategy
+    }
+    class IRouteStrategy {
+        <<interface>>
+        +plan(start, tasks) Route
+    }
+    class AtlasRouteStrategy
+    class NearestNeighborRouteStrategy
+    class BruteForceRouteStrategy
+    class Atlas {
+        +longestPath(graph, start) list
+    }
+    class Graph {
+        +addEdge(...)
+        +edgeLabels(node)
+    }
+    class WowApiAdapter {
+        <<Adapter>>
+        +getQuestLogEntries()
+        +getPlayerMapPosition()
+    }
+    class QuestFactory {
+        <<Factory Method>>
+        +create(kind, source) Quest
+    }
+    class QuestRepository {
+        <<Repository>>
+        +getQuest(id)
+    }
+    class CommandHandler {
+        <<Chain of Responsibility>>
+        +setNext(handler)
+        +handle(cmd)
+        +execute()*
+    }
+    class TrackerFrame {
+        +render(lines)
+    }
+
+    QuestAtlasFacade --> QuestTracker
+    QuestAtlasFacade --> TrackerFrame
+    CommandHandler --> QuestAtlasFacade : kullanır
+    QuestTracker --> EventBus
+    QuestTracker --> RoutePlanner
+    QuestTracker --> QuestFactory
+    QuestTracker --> WowApiAdapter
+    QuestFactory --> QuestRepository
+    RoutePlanner --> RouteStrategyFactory
+    RouteStrategyFactory ..> IRouteStrategy
+    IRouteStrategy <|.. AtlasRouteStrategy
+    IRouteStrategy <|.. NearestNeighborRouteStrategy
+    IRouteStrategy <|.. BruteForceRouteStrategy
+    AtlasRouteStrategy --> Atlas
+    Atlas --> Graph
